@@ -23,6 +23,13 @@ class SlideCrewManager:
         strategist = Agent(role='Planejador', goal='Estrutura.', backstory="Estrategista.", llm=self.llm, allow_delegation=False)
         writer = Agent(role='Redator', goal='Conteúdo denso.', backstory="Escritor técnico.", llm=self.llm, allow_delegation=False)
         formatter = Agent(role='Formatador', goal='JSON.', backstory="Dev.", llm=self.llm, allow_delegation=False)
+        reviewer = Agent(
+            role='Editor Visual', 
+            goal='Garantir que o texto caiba no design e seja impactante.', 
+            backstory="Ex-Diretor de Arte. Odeia slides com muito texto (Wall of Text).",
+            llm=self.llm,
+            allow_delegation=False
+        )
 
         num_slides = context.meta.get('num_slides', 5)
         clean_source = context.cleaned_text[:2000] # Limite de contexto
@@ -41,14 +48,32 @@ class SlideCrewManager:
             context=[plan_task]
         )
         
+        review_task = Task(
+            description=self._load_prompt("reviewer.md", num_slides=context.meta.get('num_slides', 5)),
+            expected_output="Texto refinado e conciso.", 
+            agent=reviewer, 
+            context=[write_task] # Recebe do Writer
+        )
+        
+        # format_task = Task(
+        #     description=self._load_prompt("formatter.md"),
+        #     expected_output="JSON válido.", 
+        #     agent=formatter, 
+        #     context=[write_task]
+        # )
         format_task = Task(
             description=self._load_prompt("formatter.md"),
             expected_output="JSON válido.", 
             agent=formatter, 
-            context=[write_task]
+            context=[review_task] 
         )
 
-        crew = Crew(agents=[strategist, writer, formatter], tasks=[plan_task, write_task, format_task], verbose=True)
+        #crew = Crew(agents=[strategist, writer, formatter], tasks=[plan_task, write_task, format_task], verbose=True)
+        crew = Crew(
+            agents=[strategist, writer, reviewer, formatter], # Adicionar reviewer
+            tasks=[plan_task, write_task, review_task, format_task], # Adicionar review_task
+            verbose=True
+        )
         result = crew.kickoff()
         
         # Parsing Seguro
