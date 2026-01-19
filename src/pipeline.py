@@ -8,6 +8,7 @@ from src.services.image_gen import ImageGeneratorService
 from src.engine.layout import compute_layout
 from src.engine.renderer import render_pptx
 from src.services.image_val import ImageValidatorService
+from src.engine.qa import editorial_qa_simulation, apply_tickets_simulation # Importar do novo módulo
 
 
 def run_pipeline(prompt: str, context_text: str, output_file: str, groq_key: str, hf_token: str = None):
@@ -35,6 +36,15 @@ def run_pipeline(prompt: str, context_text: str, output_file: str, groq_key: str
         print(f"❌ Erro Crítico no CrewAI: {e}")
         return None
 
+    print("\n🔍 Auditando qualidade dos slides...")
+    qa_result = editorial_qa_simulation(deck)
+    if not qa_result.scorecard.passed:
+        print(f"   ⚠️ Problemas detectados: {[t.issue_code for t in qa_result.tickets]}")
+        print("   🔧 Aplicando correções automáticas...")
+        deck = apply_tickets_simulation(deck, qa_result.tickets)
+    else:
+        print("   ✅ Conteúdo aprovado na auditoria.")
+
     # 4. Geração de Imagens (Smart Context)
     print("\n🖼️ 2. Gerando Imagens Contextuais...")
     img_gen = ImageGeneratorService(hf_token=hf_token)
@@ -51,6 +61,8 @@ def run_pipeline(prompt: str, context_text: str, output_file: str, groq_key: str
                 f"Subject: {s.title}. Context: {context_preview}. "
                 f"Style: Futuristic Minimalism."
             )
+        
+        
         
         # Gera
         if s.image.status != "ready":
