@@ -1,0 +1,7 @@
+crewai
+langchain-groq
+pydantic
+python-pptx
+huggingface_hub
+pillow
+python-dotenv
